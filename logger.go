@@ -12,7 +12,9 @@ type Logger struct {
 }
 
 func (writer Logger) Write(bytes []byte) (int, error) {
-	return fmt.Print(time.Now().Local().Format("2006-01-02 15:04:05.999") + " " + string(bytes))
+	return fmt.Printf("%21s %s",
+		time.Now().Local().Format("2006-01-02 15:04:05.999"),
+		string(bytes))
 }
 
 func GinLogger() gin.HandlerFunc {

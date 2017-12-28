@@ -12,11 +12,19 @@ type TlsParams struct {
 	KeyFile  string `json:"keyFile"`
 }
 
+type VHost struct {
+	TargetAddress string `json:"targetAddress"`
+	Hostname      string `json:"hostname"`
+}
+
 type Configuration struct {
 	Tls            TlsParams `json:"tls"`
 	ListenAddress  string    `json:"listenAddress"`
-	TargetAddress  string    `json:"targetAddress"`
 	MetricsAddress string    `json:"metricsAddress"`
+	VHosts         []struct {
+		TargetAddress string `json:"targetAddress"`
+		Hostname      string `json:"hostname"`
+	} `json:"vHosts,inline"`
 }
 
 func LoadConfig(configfile string) (Configuration, error) {

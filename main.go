@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -24,35 +25,41 @@ var (
 	config         Configuration
 )
 
+type HostSwitch map[string]http.Handler
+
+func (hs HostSwitch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if handler := hs[r.Host]; handler != nil {
+		handler.ServeHTTP(w, r)
+	} else {
+		// Handle host names for which no handler is registered
+		http.Error(w, "Forbidden", 403) // Or Redirect?
+	}
+}
+
 func main() {
 
 	log.SetFlags(0)
 	log.SetOutput(new(Logger))
-	log.Println("Reverse Auth Proxy")
 
 	if len(os.Args) < 2 {
-		listenAddress = os.Getenv("AUTH_PROXY_LISTEN_ADDRESS")
-		targetAddress = os.Getenv("AUTH_PROXY_TARGET_ADDRESS")
-		metricsAddress = os.Getenv("AUTH_PROXY_METRICS_ADDRESS")
-		caCertfile = os.Getenv("AUTH_PROXY_CACERT")
-		serverCert = os.Getenv("AUTH_PROXY_CERT")
-		serverKey = os.Getenv("AUTH_PROXY_KEY")
-	} else {
-		config, err := LoadConfig(os.Args[1])
-		if err != nil {
-			panic(err)
-		}
-		listenAddress = config.ListenAddress
-		targetAddress = config.TargetAddress
-		metricsAddress = config.MetricsAddress
-		caCertfile = config.Tls.CaFile
-		serverCert = config.Tls.CertFile
-		serverKey = config.Tls.KeyFile
+		fmt.Println("Missing parameter for configfile.")
+		fmt.Printf("usage: %s <configfile>\n", os.Args[0])
+		os.Exit(1)
 	}
+
+	log.Println("Reverse Auth Proxy")
+	config, err := LoadConfig(os.Args[1])
+	if err != nil {
+		panic(err)
+	}
+	listenAddress = config.ListenAddress
+	metricsAddress = config.MetricsAddress
+	caCertfile = config.Tls.CaFile
+	serverCert = config.Tls.CertFile
+	serverKey = config.Tls.KeyFile
 
 	log.Println("Configparams:")
 	log.Printf(" listenAddress : %s", listenAddress)
-	log.Printf(" targetAddress : %s", targetAddress)
 	log.Printf(" metricsAddress: %s", metricsAddress)
 	log.Printf(" caCert        : %s", caCertfile)
 	log.Printf(" serverCert    : %s", serverCert)
@@ -68,21 +75,21 @@ func main() {
 	caCertPool.AppendCertsFromPEM(caCert)
 
 	gin.SetMode(gin.ReleaseMode)
-	proxy := gin.New()
-	proxy.Use(GinLogger())
-	proxy.Use(gin.Recovery())
-	proxy.Use(ReverseProxy(targetAddress))
+	hostSwitch := make(HostSwitch)
 
-	adminGroup := proxy.Group("/admin")
-	{
-		adminGroup.GET("/healthz", func(c *gin.Context) {
-			c.String(200, "healthy")
-		})
+	log.Println(" Vhosts:")
+	for _, host := range config.VHosts {
+		log.Printf(" %-20s -> %s", host.Hostname, host.TargetAddress)
+		proxy := gin.New()
+		proxy.Use(GinLogger())
+		proxy.Use(gin.Recovery())
+		proxy.Use(ReverseProxy(host.TargetAddress))
+		hostSwitch[host.Hostname] = proxy
 	}
 
 	tlsserver := &http.Server{
 		Addr:    listenAddress,
-		Handler: proxy,
+		Handler: hostSwitch,
 		TLSConfig: &tls.Config{
 			ClientAuth: tls.RequireAndVerifyClientCert,
 			ClientCAs:  caCertPool,
