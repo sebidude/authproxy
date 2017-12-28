@@ -1,0 +1,7 @@
+listenAddress: localhost:8443
+targetAddress: http://localhost:9090
+metricsAddress: localhost:8080
+tls:
+  caFile: certs/ca.crt
+  certFile: certs/test-srv.crt
+  keyFile: certs/test-srv.key
