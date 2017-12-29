@@ -6,8 +6,8 @@ Example:
 ```
 ./authproxy example/authproxy.yaml
 ```
+
 Use the client pkcs12 file ```example/certs/client-han.pfx``` for browser testing (password: han)
 
-Server cert can be issued by a different CA than the client cert.
+Server certs can be issued by a different CA than the client certs but only one ClientCA is supported.
 
-It does not support different server certificates for different vhosts, so you have to use SubAltNames.

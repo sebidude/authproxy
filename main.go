@@ -51,21 +51,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Println("Reverse Auth Proxy")
+	log.Println("==== Reverse Auth Proxy ====")
 	config, err := LoadConfig(os.Args[1])
 	if err != nil {
 		log.Panic(err)
 	}
 	listenAddress = config.ListenAddress
 	metricsAddress = config.MetricsAddress
+	caCertfile = config.CaFile
 
 	log.Println("Configparams:")
 	log.Printf(" listenAddress : %s", listenAddress)
 	log.Printf(" metricsAddress: %s", metricsAddress)
 	log.Printf(" caCert        : %s", caCertfile)
-	log.Printf(" serverCert    : %s", serverCert)
-	log.Printf(" serverKey     : %s", serverKey)
-
 	// prepare the certpool
 
 	gin.SetMode(gin.ReleaseMode)
@@ -82,7 +80,11 @@ func main() {
 
 	log.Println(" Vhosts:")
 	for k, host := range config.VHosts {
-		log.Printf(" %-20s -> %s", host.Hostname, host.TargetAddress)
+		log.Print(" - virtual host")
+		log.Printf("   hostname     : %s", host.Hostname)
+		log.Printf("   targetAddress: %s", host.TargetAddress)
+		log.Printf("   serverCert   : %s", host.Tls.CertFile)
+		log.Printf("   serverKey    : %s", host.Tls.KeyFile)
 
 		tlsConfig.Certificates[k], err = tls.LoadX509KeyPair(host.Tls.CertFile, host.Tls.KeyFile)
 		if err != nil {
