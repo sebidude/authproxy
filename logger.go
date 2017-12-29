@@ -31,7 +31,8 @@ func GinLogger() gin.HandlerFunc {
 
 		// access the status we are sending
 		status := c.Writer.Status()
-		logstring := fmt.Sprintf("[ GIN ] %s - %d - %s (%s)",
+		logstring := fmt.Sprintf("[ %s ] %s - %d - %s (%s)",
+			c.Request.Host,
 			c.Request.RemoteAddr,
 			status,
 			c.Request.RequestURI,

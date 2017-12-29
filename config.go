@@ -11,7 +11,6 @@ import (
 )
 
 type TlsParams struct {
-	CaFile   string `json:"caFile"`
 	CertFile string `json:"certFile"`
 	KeyFile  string `json:"keyFile"`
 }
@@ -22,12 +21,13 @@ type VHost struct {
 }
 
 type Configuration struct {
-	Tls            TlsParams `json:"tls"`
-	ListenAddress  string    `json:"listenAddress"`
-	MetricsAddress string    `json:"metricsAddress"`
+	CaFile         string `json:"caFile"`
+	ListenAddress  string `json:"listenAddress"`
+	MetricsAddress string `json:"metricsAddress"`
 	VHosts         []struct {
-		TargetAddress string `json:"targetAddress"`
-		Hostname      string `json:"hostname"`
+		TargetAddress string    `json:"targetAddress"`
+		Hostname      string    `json:"hostname"`
+		Tls           TlsParams `json:"tls"`
 	} `json:"vHosts,inline"`
 }
 

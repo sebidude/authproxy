@@ -1,12 +1,17 @@
 listenAddress: localhost:8443
 metricsAddress: localhost:8080
+caFile: example/certs/ca.crt
 vHosts:
-  - hostname: localhost:8443
+  - hostname: hangar:8443
     targetAddress: http://localhost:9090
-  - hostname: myhost:8443
-    targetAddress: http://localhost:9100
+    tls:
+      certFile: example/certs/hangar.crt
+      keyFile: example/certs/hangar.key
 
-tls:
-  caFile: example/certs/ca.crt
-  certFile: example/certs/cantina.crt
-  keyFile: example/certs/cantina.key
+  - hostname: cantina:8443
+    targetAddress: http://localhost:9100
+    tls:
+      certFile: example/certs/cantina.crt
+      keyFile: example/certs/cantina.key
+
+

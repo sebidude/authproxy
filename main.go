@@ -54,13 +54,10 @@ func main() {
 	log.Println("Reverse Auth Proxy")
 	config, err := LoadConfig(os.Args[1])
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 	listenAddress = config.ListenAddress
 	metricsAddress = config.MetricsAddress
-	caCertfile = config.Tls.CaFile
-	serverCert = config.Tls.CertFile
-	serverKey = config.Tls.KeyFile
 
 	log.Println("Configparams:")
 	log.Printf(" listenAddress : %s", listenAddress)
@@ -70,46 +67,52 @@ func main() {
 	log.Printf(" serverKey     : %s", serverKey)
 
 	// prepare the certpool
-	caCert, err := ioutil.ReadFile(caCertfile)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
 
 	gin.SetMode(gin.ReleaseMode)
 	hostSwitch := make(HostSwitch)
+	tlsConfig := &tls.Config{}
+	tlsConfig.Certificates = make([]tls.Certificate, len(config.VHosts))
+	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	caCert, err := ioutil.ReadFile(config.CaFile)
+	if err != nil {
+		log.Panic(err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
 
 	log.Println(" Vhosts:")
-	for _, host := range config.VHosts {
+	for k, host := range config.VHosts {
 		log.Printf(" %-20s -> %s", host.Hostname, host.TargetAddress)
+
+		tlsConfig.Certificates[k], err = tls.LoadX509KeyPair(host.Tls.CertFile, host.Tls.KeyFile)
+		if err != nil {
+			log.Panic(err)
+		}
+
 		proxy := gin.New()
 		proxy.Use(GinLogger())
 		proxy.Use(gin.Recovery())
 		proxy.Use(ReverseProxy(host.TargetAddress))
 		hostSwitch[host.Hostname] = proxy
 	}
+	tlsConfig.ClientCAs = caCertPool
+	tlsConfig.BuildNameToCertificate()
 
 	tlsserver := &http.Server{
-		Addr:    listenAddress,
-		Handler: hostSwitch,
-		TLSConfig: &tls.Config{
-			ClientAuth: tls.RequireAndVerifyClientCert,
-			ClientCAs:  caCertPool,
-		},
+		Addr:      listenAddress,
+		Handler:   hostSwitch,
+		TLSConfig: tlsConfig,
 	}
 
 	http.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe(":8080", nil)
 
 	log.Printf("Start reverse proxy on %s", listenAddress)
-	err = tlsserver.ListenAndServeTLS(
-		serverCert,
-		serverKey)
+	tlslistener, err := tls.Listen("tcp", listenAddress, tlsConfig)
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
+	log.Fatal(tlsserver.Serve(tlslistener))
 }
 
 func ReverseProxy(target string) gin.HandlerFunc {
