@@ -21,13 +21,14 @@ type VHost struct {
 }
 
 type Configuration struct {
-	CaFile         string `json:"caFile"`
+	CaFile         string `json:"caFile,omitempty"`
 	ListenAddress  string `json:"listenAddress"`
 	MetricsAddress string `json:"metricsAddress"`
 	VHosts         []struct {
 		TargetAddress string    `json:"targetAddress"`
 		Hostname      string    `json:"hostname"`
 		Tls           TlsParams `json:"tls"`
+		Log           bool      `json:"log"`
 	} `json:"vHosts,inline"`
 }
 
