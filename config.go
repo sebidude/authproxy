@@ -15,11 +15,6 @@ type TlsParams struct {
 	KeyFile  string `json:"keyFile"`
 }
 
-type VHost struct {
-	TargetAddress string `json:"targetAddress"`
-	Hostname      string `json:"hostname"`
-}
-
 type Configuration struct {
 	CaFile         string `json:"caFile,omitempty"`
 	ListenAddress  string `json:"listenAddress"`
