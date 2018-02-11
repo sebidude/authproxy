@@ -24,7 +24,9 @@ import (
 type (
 	HostSwitch   map[string]http.Handler
 	ReverseProxy struct {
-		RequestCounter *prometheus.CounterVec
+		RequestCounter       *prometheus.CounterVec
+		ExtraRequestHeaders  map[string][]ExtraHeaders
+		ExtraResponseHeaders map[string][]ExtraHeaders
 	}
 )
 
@@ -54,6 +56,15 @@ func (rp *ReverseProxy) HandleRequest(host, target string) gin.HandlerFunc {
 	}
 	proxy := httputil.NewSingleHostReverseProxy(url)
 	return func(c *gin.Context) {
+
+		for _, v := range rp.ExtraRequestHeaders[host] {
+			c.Request.Header.Add(v.Name, v.Value)
+		}
+
+		for _, v := range rp.ExtraResponseHeaders[host] {
+			c.Writer.Header().Set(v.Name, v.Value)
+		}
+
 		proxy.ServeHTTP(c.Writer, c.Request)
 		rp.RequestCounter.WithLabelValues(
 			c.Request.Method,
@@ -88,6 +99,8 @@ func main() {
 	hostSwitch := make(HostSwitch)
 	tlsConfig := &tls.Config{}
 	reverseProxy := NewReverseProxy()
+	reverseProxy.ExtraRequestHeaders = make(map[string][]ExtraHeaders)
+	reverseProxy.ExtraResponseHeaders = make(map[string][]ExtraHeaders)
 
 	// use x509 client auth if cafile is set
 	if len(config.CaFile) > 0 {
@@ -107,11 +120,22 @@ func main() {
 	log.Println(" Vhosts:")
 	for k, host := range config.VHosts {
 		log.Print(" - virtual host")
-		log.Printf("   hostname     : %s", host.Hostname)
-		log.Printf("   targetAddress: %s", host.TargetAddress)
-		log.Printf("   log          : %t", host.Log)
-		log.Printf("   serverCert   : %s", host.Tls.CertFile)
-		log.Printf("   serverKey    : %s", host.Tls.KeyFile)
+		log.Printf("   hostname          : %s", host.Hostname)
+		log.Printf("   targetAddress     : %s", host.TargetAddress)
+		log.Printf("   log               : %t", host.Log)
+		log.Printf("   serverCert        : %s", host.Tls.CertFile)
+		log.Printf("   serverKey         : %s", host.Tls.KeyFile)
+
+		for _, v := range host.ExtraRequestHeaders {
+			log.Printf("   + request header  :  %s: %s", v.Name, v.Value)
+		}
+
+		for _, v := range host.ExtraResponseHeaders {
+			log.Printf("   + response header :  %s: %s", v.Name, v.Value)
+		}
+
+		reverseProxy.ExtraRequestHeaders[host.Hostname] = host.ExtraRequestHeaders
+		reverseProxy.ExtraResponseHeaders[host.Hostname] = host.ExtraResponseHeaders
 
 		tlsConfig.Certificates[k], err = tls.LoadX509KeyPair(host.Tls.CertFile, host.Tls.KeyFile)
 		if err != nil {

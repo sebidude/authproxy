@@ -15,9 +15,9 @@ type TlsParams struct {
 	KeyFile  string `json:"keyFile"`
 }
 
-type VHost struct {
-	TargetAddress string `json:"targetAddress"`
-	Hostname      string `json:"hostname"`
+type ExtraHeaders struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type Configuration struct {
@@ -25,10 +25,12 @@ type Configuration struct {
 	ListenAddress  string `json:"listenAddress"`
 	MetricsAddress string `json:"metricsAddress"`
 	VHosts         []struct {
-		TargetAddress string    `json:"targetAddress"`
-		Hostname      string    `json:"hostname"`
-		Tls           TlsParams `json:"tls"`
-		Log           bool      `json:"log"`
+		TargetAddress        string         `json:"targetAddress"`
+		Hostname             string         `json:"hostname"`
+		Tls                  TlsParams      `json:"tls"`
+		Log                  bool           `json:"log"`
+		ExtraRequestHeaders  []ExtraHeaders `json:"addStaticRequestHeaders"`
+		ExtraResponseHeaders []ExtraHeaders `json:"addStaticResponseHeaders"`
 	} `json:"vHosts,inline"`
 }
 

@@ -32,6 +32,16 @@ caFile: example/certs/ca.crt
 #  tls: the tls config
 #    certFile: path to the file holding the certificate to be used with this vhost
 #    keyFile: path to the file holding the key for the certFile 
+#  addStaticRequestHeaders: list of additional (static) http headers passed to the vHost with each request
+#    - name: name of the added header
+#      value: value of the added header
+#    - name: ...
+#      value: ...
+#  addStaticResponseHeaders: list of additional (static) http headers passed to the client with each response
+#    - name: name of the added header
+#      value: value of the added header
+#    - name: ...
+#      value: ...
 vHosts:
   - hostname: hangar:8443
     targetAddress: http://localhost:9090
@@ -39,7 +49,6 @@ vHosts:
     tls:
       certFile: example/certs/hangar.crt
       keyFile: example/certs/hangar.key
-
   - hostname: cantina:8443
     targetAddress: http://localhost:9100
     log: true
