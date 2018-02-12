@@ -15,10 +15,7 @@ type TlsParams struct {
 	KeyFile  string `json:"keyFile"`
 }
 
-type VHost struct {
-	TargetAddress string `json:"targetAddress"`
-	Hostname      string `json:"hostname"`
-}
+type Headers map[string]string
 
 type Configuration struct {
 	CaFile         string `json:"caFile,omitempty"`
@@ -29,6 +26,7 @@ type Configuration struct {
 		Hostname      string    `json:"hostname"`
 		Tls           TlsParams `json:"tls"`
 		Log           bool      `json:"log"`
+		Headers       Headers   `json:"headers,omitempty"`
 	} `json:"vHosts,inline"`
 }
 

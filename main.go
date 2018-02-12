@@ -14,6 +14,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"reflect"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -21,10 +22,22 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+var (
+	RequestCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "authproxy",
+		Name:      "request_counter",
+		Help:      "Counter for the requests handled by the proxy.",
+	}, []string{"method", "code", "host", "target"})
+)
+
 type (
 	HostSwitch   map[string]http.Handler
 	ReverseProxy struct {
-		RequestCounter *prometheus.CounterVec
+		Url     *url.URL
+		Host    string
+		Target  string
+		Headers Headers
+		Proxy   *httputil.ReverseProxy
 	}
 )
 
@@ -37,29 +50,43 @@ func (hs HostSwitch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewReverseProxy() *ReverseProxy {
+func NewReverseProxy(host string, target string, headers Headers) *ReverseProxy {
 	rp := &ReverseProxy{}
-	rp.RequestCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "proxy",
-		Name:      "request_counter",
-		Help:      "Counter for the requests handled by the proxy.",
-	}, []string{"method", "code", "host", "target"})
-	return rp
-}
-
-func (rp *ReverseProxy) HandleRequest(host, target string) gin.HandlerFunc {
+	rp.Host = host
+	rp.Target = target
+	rp.Headers = headers
 	url, err := url.Parse(target)
 	if err != nil {
 		log.Println(err)
 	}
-	proxy := httputil.NewSingleHostReverseProxy(url)
+	rp.Url = url
+	rp.Proxy = httputil.NewSingleHostReverseProxy(url)
+	rp.Proxy.Director = rp.director
+	return rp
+}
+
+func (rp *ReverseProxy) director(req *http.Request) {
+	req.Host = rp.Host
+	req.URL.Scheme = rp.Url.Scheme
+	req.URL.Host = rp.Url.Host
+	req.Header.Set("Host", rp.Host)
+	req.Header.Add("X-Real-IP", req.RemoteAddr)
+
+	keys := reflect.ValueOf(rp.Headers).MapKeys()
+	for _, v := range keys {
+		key := v.String()
+		req.Header.Add(key, rp.Headers[key])
+	}
+}
+
+func (rp *ReverseProxy) HandleRequest() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		proxy.ServeHTTP(c.Writer, c.Request)
-		rp.RequestCounter.WithLabelValues(
+		rp.Proxy.ServeHTTP(c.Writer, c.Request)
+		RequestCounter.WithLabelValues(
 			c.Request.Method,
 			strconv.Itoa(c.Writer.Status()),
-			host,
-			url.Host).Inc()
+			rp.Host,
+			rp.Target).Inc()
 	}
 }
 
@@ -87,7 +114,6 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	hostSwitch := make(HostSwitch)
 	tlsConfig := &tls.Config{}
-	reverseProxy := NewReverseProxy()
 
 	// use x509 client auth if cafile is set
 	if len(config.CaFile) > 0 {
@@ -112,6 +138,15 @@ func main() {
 		log.Printf("   log          : %t", host.Log)
 		log.Printf("   serverCert   : %s", host.Tls.CertFile)
 		log.Printf("   serverKey    : %s", host.Tls.KeyFile)
+		if len(host.Headers) > 0 {
+			log.Println("   headers      :")
+
+			keys := reflect.ValueOf(host.Headers).MapKeys()
+			for _, v := range keys {
+				key := v.String()
+				log.Printf("    %15s: %s", key, host.Headers[key])
+			}
+		}
 
 		tlsConfig.Certificates[k], err = tls.LoadX509KeyPair(host.Tls.CertFile, host.Tls.KeyFile)
 		if err != nil {
@@ -122,8 +157,10 @@ func main() {
 		if host.Log {
 			proxy.Use(GinLogger())
 		}
+
+		reverseProxy := NewReverseProxy(host.Hostname, host.TargetAddress, host.Headers)
 		proxy.Use(gin.Recovery())
-		proxy.Use(reverseProxy.HandleRequest(host.Hostname, host.TargetAddress))
+		proxy.Use(reverseProxy.HandleRequest())
 		hostSwitch[host.Hostname] = proxy
 	}
 	tlsConfig.BuildNameToCertificate()
@@ -133,7 +170,7 @@ func main() {
 		Handler:   hostSwitch,
 		TLSConfig: tlsConfig,
 	}
-	prometheus.MustRegister(reverseProxy.RequestCounter)
+	prometheus.MustRegister(RequestCounter)
 	http.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe(config.MetricsAddress, nil)
 

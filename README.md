@@ -29,6 +29,7 @@ caFile: example/certs/ca.crt
 #  hostname: hostname[:port] which will trigger the proxy (SNI is used to determine the tls.Certificate)
 #  targetAddress: the URI to which the requests will be forwarded.
 #  log: set to true to log every request. if set to false no log messages will be written for the vhost
+#  headers: a map of headers which will be added to the forwarded request. "Host" and "X-Real-IP" will always be added.
 #  tls: the tls config
 #    certFile: path to the file holding the certificate to be used with this vhost
 #    keyFile: path to the file holding the key for the certFile 
@@ -43,6 +44,10 @@ vHosts:
   - hostname: cantina:8443
     targetAddress: http://localhost:9100
     log: true
+    headers:
+      X-Forwarded-Proto: https
+      X-Forwarded-Ssl: on
+      X-Forwarded-Scheme: https
     tls:
       certFile: example/certs/cantina.crt
       keyFile: example/certs/cantina.key
