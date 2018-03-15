@@ -116,15 +116,17 @@ func main() {
 	tlsConfig := &tls.Config{}
 
 	// use x509 client auth if cafile is set
-	if len(config.CaFile) > 0 {
+	if len(config.CaFiles) > 0 {
 		log.Print(" Auth:")
-		log.Printf("  caCert        : %s", config.CaFile)
-		caCert, err := ioutil.ReadFile(config.CaFile)
-		if err != nil {
-			log.Panic(err)
-		}
 		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
+		for _, caCertFile := range config.CaFiles {
+			log.Printf("  caCertFile    : %s", caCertFile)
+			caCert, err := ioutil.ReadFile(caCertFile)
+			if err != nil {
+				log.Panic(err)
+			}
+			caCertPool.AppendCertsFromPEM(caCert)
+		}
 		tlsConfig.ClientCAs = caCertPool
 		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 	}
