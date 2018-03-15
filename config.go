@@ -18,9 +18,9 @@ type TlsParams struct {
 type Headers map[string]string
 
 type Configuration struct {
-	CaFile         string `json:"caFile,omitempty"`
-	ListenAddress  string `json:"listenAddress"`
-	MetricsAddress string `json:"metricsAddress"`
+	CaFiles        []string `json:"caFiles,omitempty"`
+	ListenAddress  string   `json:"listenAddress"`
+	MetricsAddress string   `json:"metricsAddress"`
 	VHosts         []struct {
 		TargetAddress string    `json:"targetAddress"`
 		Hostname      string    `json:"hostname"`
