@@ -11,8 +11,9 @@ import (
 )
 
 type TlsParams struct {
-	CertFile string `json:"certFile"`
-	KeyFile  string `json:"keyFile"`
+	CertFile    string   `json:"certFile"`
+	KeyFile     string   `json:"keyFile"`
+	AllowedOrgs []string `json:"allowedOrgs,omitempty"`
 }
 
 type Headers map[string]string

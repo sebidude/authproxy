@@ -33,11 +33,12 @@ var (
 type (
 	HostSwitch   map[string]http.Handler
 	ReverseProxy struct {
-		Url     *url.URL
-		Host    string
-		Target  string
-		Headers Headers
-		Proxy   *httputil.ReverseProxy
+		Url                  *url.URL
+		Host                 string
+		Target               string
+		AllowedOrganisations []string
+		Headers              Headers
+		Proxy                *httputil.ReverseProxy
 	}
 )
 
@@ -50,11 +51,12 @@ func (hs HostSwitch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewReverseProxy(host string, target string, headers Headers) *ReverseProxy {
+func NewReverseProxy(host string, target string, headers Headers, orgs []string) *ReverseProxy {
 	rp := &ReverseProxy{}
 	rp.Host = host
 	rp.Target = target
 	rp.Headers = headers
+	rp.AllowedOrganisations = orgs
 	url, err := url.Parse(target)
 	if err != nil {
 		log.Println(err)
@@ -81,6 +83,20 @@ func (rp *ReverseProxy) director(req *http.Request) {
 
 func (rp *ReverseProxy) HandleRequest() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if len(rp.AllowedOrganisations) > 0 {
+			allowed := false
+			for _, org := range c.Request.TLS.PeerCertificates[0].Subject.Organization {
+				for _, allowedOrg := range rp.AllowedOrganisations {
+					if org == allowedOrg {
+						allowed = true
+					}
+				}
+			}
+			if !allowed {
+				c.AbortWithStatus(403)
+				return
+			}
+		}
 		rp.Proxy.ServeHTTP(c.Writer, c.Request)
 		RequestCounter.WithLabelValues(
 			c.Request.Method,
@@ -140,6 +156,14 @@ func main() {
 		log.Printf("   log          : %t", host.Log)
 		log.Printf("   serverCert   : %s", host.Tls.CertFile)
 		log.Printf("   serverKey    : %s", host.Tls.KeyFile)
+		if len(host.Tls.AllowedOrgs) > 0 {
+			log.Println("   allowedOrgs  :")
+			for _, v := range host.Tls.AllowedOrgs {
+				log.Printf("    - %s", v)
+			}
+
+		}
+
 		if len(host.Headers) > 0 {
 			log.Println("   headers      :")
 
@@ -160,7 +184,7 @@ func main() {
 			proxy.Use(GinLogger())
 		}
 
-		reverseProxy := NewReverseProxy(host.Hostname, host.TargetAddress, host.Headers)
+		reverseProxy := NewReverseProxy(host.Hostname, host.TargetAddress, host.Headers, host.Tls.AllowedOrgs)
 		proxy.Use(gin.Recovery())
 		proxy.Use(reverseProxy.HandleRequest())
 		hostSwitch[host.Hostname] = proxy

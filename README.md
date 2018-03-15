@@ -23,7 +23,7 @@ metricsAddress: localhost:8080
 # Specify the path(s) to a CA cert(s) for authenticating clients.
 # comment this option to turn off x509 client auth
 caFiles: 
-- example/certs/ca1.crt
+- example/certs/ca.crt
 
 # Configuration of the vhosts the proxy will handle
 # List of vhosts holding
@@ -41,6 +41,9 @@ vHosts:
     tls:
       certFile: example/certs/hangar.crt
       keyFile: example/certs/hangar.key
+      allowedOrgs:
+      - Millenium Falcon
+
 
   - hostname: cantina:8443
     targetAddress: http://localhost:9100
