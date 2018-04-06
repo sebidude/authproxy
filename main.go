@@ -198,7 +198,10 @@ func main() {
 	}
 	prometheus.MustRegister(RequestCounter)
 	http.Handle("/metrics", promhttp.Handler())
-	go http.ListenAndServe(config.MetricsAddress, nil)
+	go func() {
+		log.Println("Starting metrics handler.")
+		log.Fatalf("Metrics handler failed: %s", http.ListenAndServe(config.MetricsAddress, nil))
+	}()
 
 	log.Printf("Start reverse proxy on %s", config.ListenAddress)
 	tlslistener, err := tls.Listen("tcp", config.ListenAddress, tlsConfig)
