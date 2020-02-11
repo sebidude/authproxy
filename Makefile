@@ -37,7 +37,7 @@ build-linux: info dep
 
 
 image:
-	docker build -t sebidude/$(APPNAME):$(VERSIONTAG) .
+	docker build --no-cache -t sebidude/$(APPNAME):$(VERSIONTAG) .
 
 publish:
 	docker push sebidude/$(APPNAME):$(VERSIONTAG) 
