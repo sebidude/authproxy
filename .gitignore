@@ -1,0 +1,16 @@
+*
+!*/
+!*.*
+!*.go
+!*.yaml
+!id_*
+!Makefile
+!LICENSE
+!Dockerfile
+*.sha256sum
+*.exe
+.vscode/*
+build/*
+!test/templates/*
+manifests
+rendered
